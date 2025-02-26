@@ -1,80 +1,98 @@
 const express = require("express");
-const cors = require("cors");
-const pool = require("./db");
-require("dotenv").config();
+const cors = require('cors');
+const db = require("./db"); 
 
 const app = express();
-app.use(cors());
+const PORT = 5000;
+
+// Middleware
 app.use(express.json());
+app.use(cors({
+    origin: "http://localhost:5173", 
+}));
 
-/** 🔹 READ: Retrieve and display a list of all books */
-app.get("/books", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM books");
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
-/** 🔹 CREATE: Add a new book */
 app.post("/books", async (req, res) => {
-  try {
-    console.log("Request received:", req.body);
-    const { title, author, genre, publicationDate, description } = req.body;
+    try {
+        let { title, author, genre, publication_date, description } = req.body;
 
-    if (!title || !author || !genre || !publicationDate || !description) {
-      return res.status(400).json({ error: "All fields are required" });
+        // Ensure the date is stored in YYYY-MM-DD format (prevents time zone issues)
+        if (publication_date) {
+            publication_date = new Date(publication_date).toISOString().split("T")[0];
+        }
+
+        const newBook = await db.query(
+            "INSERT INTO books (title, author, genre, publication_date, description) VALUES ($1, $2, $3, $4, $5 ) RETURNING *",
+            [title, author, genre, publication_date, description]
+        );
+
+        console.log("Inserted book:", newBook.rows[0]); 
+        res.status(201).json(newBook.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send("Error creating New Book");
     }
-
-    const result = await pool.query(
-      "INSERT INTO books (title, author, genre, publication_date, description) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [title, author, genre, publicationDate, description]
-    );
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
-/** 🔹 UPDATE: Modify existing book details */
+
+
+app.get("/books", async (req, res) => {
+    try {
+        const books = await db.query(`
+            SELECT id, title, author, genre, 
+                   TO_CHAR(publication_date, 'YYYY-MM-DD') AS publication_date, 
+                   description 
+            FROM books WHERE is_deleted = FALSE;
+        `);
+        res.json(books.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send("Error fetching books " + err);
+    }
+});
+
+
 app.put("/books/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, author, genre, publicationDate, description } = req.body;
+    try {
+        const { id } = req.params;
+        const { title, author, genre, publication_date, description } = req.body;
 
-    const result = await pool.query(
-      "UPDATE books SET title = $1, author = $2, genre = $3, publication_date = $4, description = $5 WHERE id = $6 RETURNING *",
-      [title, author, genre, publicationDate, description, id]
-    );
+        // Update the book
+        const updateBook = await db.query(
+            `UPDATE books 
+             SET title = $1, author = $2, genre = $3, publication_date = $4, description = $5
+             WHERE id = $6 RETURNING *`,
+            [title, author, genre, publication_date, description, id]
+        );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Book not found" });
+        res.json(updateBook.rows[0]);
+    } catch (err) {
+        console.error("Error updating book:", err.message);
+        res.status(500).json({ error: "Error updating book" });
     }
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
-/** 🔹 DELETE: Remove a book record */
-app.delete("/books/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
 
-    const result = await pool.query("DELETE FROM books WHERE id = $1 RETURNING *", [id]);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Book not found" });
+app.put("/books/delete/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Soft delete the book
+        const deleteBook = await db.query(
+            "UPDATE books SET is_deleted = TRUE WHERE id = $1 RETURNING *",
+            [id]
+        );
+
+        res.json({ message: "Book soft deleted successfully", book: deleteBook.rows[0] });
+    } catch (err) {
+        console.error("Error soft deleting book:", err.message);
+        res.status(500).json({ error: "Error soft deleting book" });
     }
-
-    res.json({ message: "Book deleted successfully" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+
+
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});
