@@ -1,3 +1,11 @@
+// 2. controllers/bookController.js (🎛️ الـ Controller)
+// 📌 المسؤولية: إدارة الـ Logic بين الـ Model والـ Routes.
+// 📌 إيش بيعمل؟
+
+// يحتوي على Functions تتعامل مع الطلبات (Requests) القادمة من المستخدم.
+// يستدعي الدوال الموجودة في Model ويتحكم في تدفق البيانات بين الـ Frontend و Database.
+// في حال حدوث خطأ، يرجّع Response مناسب للمستخدم.
+
 const Book = require("../models/bookModel");
 
 const bookController = {
@@ -37,7 +45,10 @@ const bookController = {
     try {
       const { id } = req.params;
       const deletedBook = await Book.softDelete(id);
-      res.json({ message: "Book soft deleted successfully", book: deletedBook });
+      res.json({
+        message: "Book soft deleted successfully",
+        book: deletedBook,
+      });
     } catch (err) {
       console.error("Error soft deleting book:", err.message);
       res.status(500).json({ error: "Error soft deleting book" });

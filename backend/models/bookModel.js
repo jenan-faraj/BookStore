@@ -1,3 +1,11 @@
+// 1. models/bookModel.js (🔹 الـ Model)
+// 📌 المسؤولية: التعامل مع قاعدة البيانات.
+// 📌 إيش بيعمل؟
+
+// هذا الملف يحتوي على جميع العمليات الخاصة بالـ books في قاعدة البيانات.
+// يوفر Functions لإنشاء، تحديث، جلب، وحذف البيانات بطريقة نظيفة.
+// يفصل الـ SQL Queries عن باقي أجزاء التطبيق، مما يجعل الكود أكثر تنظيمًا.
+
 const db = require("../db");
 
 const Book = {
@@ -22,7 +30,10 @@ const Book = {
     return result.rows;
   },
 
-  update: async (id, { title, author, genre, publication_date, description }) => {
+  update: async (
+    id,
+    { title, author, genre, publication_date, description }
+  ) => {
     const result = await db.query(
       `UPDATE books 
        SET title = $1, author = $2, genre = $3, publication_date = $4, description = $5
